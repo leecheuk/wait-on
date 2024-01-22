@@ -1,5 +1,7 @@
 # wait-on - wait for files, ports, sockets, http(s) resources
 
+> NOTE: This is a fork of [jeffbski's wait-on](https://github.com/jeffbski/wait-on).
+
 wait-on is a cross-platform command line utility which will wait for files, ports, sockets, and http(s) resources to become available (or not available using reverse mode). Functionality is also available via a Node.js API. Cross-platform - runs everywhere Node.js runs (linux, unix, mac OS X, windows)
 
 wait-on will wait for period of time for a file to stop growing before triggering availability which is good for monitoring files that are being built. Likewise wait-on will wait for period of time for other resources to remain available before triggering success.
@@ -8,7 +10,6 @@ For http(s) resources wait-on will check that the requests are returning 2XX (su
 
 wait-on can also be used in reverse mode which waits for resources to NOT be available. This is useful in waiting for services to shutdown before continuing. (Thanks @skarbovskiy for adding this feature)
 
-[![Build Status](https://travis-ci.com/jeffbski/wait-on.svg?branch=master)](https://travis-ci.com/jeffbski/wait-on)
 
 ## Installation
 
@@ -296,10 +297,9 @@ I frequently need to wait on build tasks to complete or services to be available
 
 If you have input or ideas or would like to get involved, you may:
 
-- contact me via twitter @jeffbski - <http://twitter.com/jeffbski>
-- open an issue on github to begin a discussion - <https://github.com/jeffbski/wait-on/issues>
-- fork the repo and send a pull request (ideally with tests) - <https://github.com/jeffbski/wait-on>
+- open an issue on github to begin a discussion - <https://github.com/leecheuk/wait-on/issues>
+- fork the repo and send a pull request (ideally with tests) - <https://github.com/leecheuk/wait-on>
 
 ## License
 
-- [MIT license](http://github.com/jeffbski/wait-on/raw/master/LICENSE)
+- [MIT license](http://github.com/leecheuk/wait-on/raw/master/LICENSE)
