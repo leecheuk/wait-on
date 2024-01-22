@@ -1,18 +1,18 @@
 {
-  "name": "wait-on",
+  "name": "@leecheuk/wait-on",
   "description": "wait-on is a cross platform command line utility and Node.js API which will wait for files, ports, sockets, and http(s) resources to become available",
   "version": "7.2.0",
   "main": "lib/wait-on",
   "bin": {
     "wait-on": "bin/wait-on"
   },
-  "author": "Jeff Barczewski <info@codewinds.com>",
+  "author": "Cheuk Lee <dev.cheuk.lee@gmail.com>",
   "repository": {
     "type": "git",
-    "url": "http://github.com/jeffbski/wait-on.git"
+    "url": "http://github.com/leecheuk/wait-on.git"
   },
   "bugs": {
-    "url": "http://github.com/jeffbski/wait-on/issues"
+    "url": "http://github.com/leecheuk/wait-on/issues"
   },
   "license": "MIT",
   "scripts": {
