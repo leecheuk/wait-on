@@ -4,6 +4,10 @@
   "version": "7.2.1",
   "main": "lib/wait-on",
   "private": false,
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "bin": {
     "wait-on": "bin/wait-on"
   },
