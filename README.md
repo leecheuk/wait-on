@@ -20,9 +20,11 @@ wait-on versions 4-6 requires Node.js 10+
 engines, use wait-on@1.5.4)
 
 ```bash
-npm install wait-on # local version
-OR
-npm install -g wait-on # global version
+# Local version, OR
+npm install @leecheuk/wait-on
+
+# Global version
+npm install -g @leecheuk/wait-on
 ```
 
 ## Usage
