@@ -1,4 +1,4 @@
-'use strict';
+// @ts-nocheck
 
 const fs = require('fs');
 const { promisify } = require('util');
@@ -397,4 +397,4 @@ function negateAsync(asyncFn) {
   };
 }
 
-module.exports = waitOn;
+export default waitOn;

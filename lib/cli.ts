@@ -1,9 +1,8 @@
-#!/usr/bin/env node
-
+//@ts-nocheck
 const fs = require('fs');
 const minimist = require('minimist');
 const path = require('path');
-const waitOn = require('../');
+import waitOn from './wait-on';
 
 const interval = ['timeout', 'httpTimeout', 'tcpTimeout'];
 const minimistOpts = {
