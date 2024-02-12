@@ -1,11 +1,21 @@
 import typescript from '@rollup/plugin-typescript';
+import { dts } from 'rollup-plugin-dts';
+import del from 'rollup-plugin-delete';
 
-export default {
-  input: 'lib/cli.ts',
-  output: {
-    file: 'bin/wait-on',
-    format: 'cjs',
-    banner: '#!/usr/bin/env node'
+const config = [
+  {
+    input: 'lib/cli.ts',
+    output: {
+      file: 'bin/wait-on',
+      format: 'cjs',
+      banner: '#!/usr/bin/env node'
+    },
+    plugins: [typescript()]
   },
-  plugins: [typescript()]
-};
+  {
+    input: 'bin/dist/wait-on.d.ts',
+    output: [{ file: 'index.d.ts', format: 'es' }],
+    plugins: [dts(), del({ targets: 'bin/dist' })]
+  }
+];
+export default config;
