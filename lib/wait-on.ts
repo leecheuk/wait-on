@@ -1,9 +1,8 @@
 import fs from 'fs';
-import { promisify } from 'util'
+import util, { promisify } from 'util'
 import Joi from 'joi'
 import https, { AgentOptions } from 'https'
 import net from 'net'
-import util from 'util'
 import axiosPkg, { AxiosBasicCredentials, AxiosError, AxiosProxyConfig, AxiosRequestConfig } from 'axios'
 import { isBoolean, isEmpty, negate, noop, once, partial, pick, zip } from 'lodash/fp'
 import { NEVER, Observable, combineLatest, from, merge, throwError, timer } from 'rxjs'

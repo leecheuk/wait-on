@@ -2,9 +2,9 @@ import childProcess, { ExecOptions } from 'child_process';
 import fs from 'fs';
 import http, { Server } from 'http';
 import path from 'path';
-const temp = require('temp');
 import { mkdirp } from 'mkdirp'
 import { describe, afterEach, it, expect } from 'vitest';
+const temp = require('temp');
 
 temp.track(); // cleanup files on exit
 

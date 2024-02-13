@@ -22,7 +22,8 @@
   },
   "license": "MIT",
   "scripts": {
-    "lint": "eslint \"lib/**/*.js\" \"test/**/*.js\" \"bin/wait-on\"",
+    "lint": "eslint \"lib/**/*.ts\" \"test/**/*.ts\"",
+    "lint:fix": "eslint --fix \"lib/**/*.ts\" \"test/**/*.ts\"",
     "build": "rollup -c && chmod 755 ./bin/wait-on",
     "publish:next": "npm publish --tag next && npm view",
     "test": "vitest --config ./vitest.config.ts ./test"
@@ -35,7 +36,7 @@
     "@types/joi": "^17.2.3",
     "@types/lodash": "^4.14.202",
     "@types/node": "^20.11.17",
-    "eslint": "^8.52.0",
+    "eslint": "^8.56.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-config-standard": "^17.1.0",
     "eslint-plugin-chai-friendly": "^0.7.4",
@@ -51,6 +52,7 @@
     "rollup-plugin-dts": "^6.1.0",
     "temp": "^0.9.4",
     "typescript": "^5.3.3",
+    "typescript-eslint": "^7.0.1",
     "vitest": "^1.2.2"
   },
   "dependencies": {

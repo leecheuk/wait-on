@@ -1,20 +1,16 @@
 module.exports = {
-  env: {
-    mocha: true
-  },
-  plugins: ['chai-friendly'],
-  extends: ['standard', 'prettier'],
+  extends: ['plugin:@typescript-eslint/recommended'],
   root: true,
+  parser: '@typescript-eslint/parser',
+  parserOptions: { project: ['./tsconfig.json'] },
+  plugins: ['@typescript-eslint'],
   rules: {
     'no-use-before-define': 'off',
-    'no-unused-vars': [
-      'error',
-      {
-        varsIgnorePattern: 'should|expect'
-      }
-    ],
+    'no-unused-vars': 'warn',
     // disable the original no-unused-expressions use chai-friendly
     'no-unused-expressions': 'off',
-    'chai-friendly/no-unused-expressions': 'error'
+    '@typescript-eslint/no-var-requires': 'off',
+    '@typescript-eslint/ban-types': 'off',
+    '@typescript-eslint/no-explicit-any': 'off'
   }
 };
