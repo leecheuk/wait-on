@@ -72,14 +72,14 @@ describe('cli', function () {
 
   it('should succeed when http resources become available later', function () {
     const opts = {
-      resources: ['http://localhost:8123', 'http://localhost:8123/foo']
+      resources: ['http://localhost:8000', 'http://localhost:8000/foo']
     };
 
     setTimeout(function () {
       httpServer = http.createServer().on('request', function (req, res) {
         res.end('data');
       });
-      httpServer.listen(8123, 'localhost');
+      httpServer.listen(8000, 'localhost');
     }, 300);
 
     execCLI(opts.resources.concat(FAST_OPTS) as any, {}).on('exit', function (code) {
@@ -89,18 +89,18 @@ describe('cli', function () {
 
   it('should succeed when http resources become available later via redirect', function () {
     const opts = {
-      resources: ['http://localhost:8123']
+      resources: ['http://localhost:8001']
     };
 
     setTimeout(function () {
       httpServer = http.createServer().on('request', function (req, res) {
         const pathname = req.url;
         if (pathname === '/') {
-          res.writeHead(302, { Location: 'http://localhost:8123/foo' });
+          res.writeHead(302, { Location: 'http://localhost:8001/foo' });
         }
         res.end('data');
       });
-      httpServer.listen(8123, 'localhost');
+      httpServer.listen(8001, 'localhost');
     }, 300);
 
     execCLI(opts.resources.concat(FAST_OPTS) as any, {}).on('exit', function (code) {
@@ -110,14 +110,14 @@ describe('cli', function () {
 
   it('should succeed when http GET resources become available later', function () {
     const opts = {
-      resources: ['http-get://localhost:8124', 'http-get://localhost:8124/foo']
+      resources: ['http-get://localhost:8002', 'http-get://localhost:8002/foo']
     };
 
     setTimeout(function () {
       httpServer = http.createServer().on('request', function (req, res) {
         res.end('data');
       });
-      httpServer.listen(8124, 'localhost');
+      httpServer.listen(8002, 'localhost');
     }, 300);
 
     execCLI(opts.resources.concat(FAST_OPTS) as any, {}).on('exit', function (code) {
@@ -127,18 +127,18 @@ describe('cli', function () {
 
   it('should succeed when http GET resources become available later via redirect', function () {
     const opts = {
-      resources: ['http-get://localhost:8124']
+      resources: ['http-get://localhost:8003']
     };
 
     setTimeout(function () {
       httpServer = http.createServer().on('request', function (req, res) {
         const pathname = req.url;
         if (pathname === '/') {
-          res.writeHead(302, { Location: 'http://localhost:8124/foo' });
+          res.writeHead(302, { Location: 'http://localhost:8003/foo' });
         }
         res.end('data');
       });
-      httpServer.listen(8124, 'localhost');
+      httpServer.listen(8003, 'localhost');
     }, 300);
 
     execCLI(opts.resources.concat(FAST_OPTS) as any, {}).on('exit', function (code) {
@@ -621,10 +621,10 @@ describe('cli', function () {
         httpServer = http.createServer().on('request', function (req, res) {
           res.end('data');
         });
-        httpServer.listen(3030, 'localhost');
+        httpServer.listen(3031, 'localhost');
       }, 300);
 
-      const options = ['--config', path.join(__dirname, 'config-http-resources.js'), 'http://localhost:3030/'].concat(FAST_OPTS);
+      const options = ['--config', path.join(__dirname, 'config-http-resources.js'), 'http://localhost:3031/'].concat(FAST_OPTS);
       execCLI(options as ExecOptions, {}).on('exit', function (code) {
         expect(code).toBe(0);
       });
