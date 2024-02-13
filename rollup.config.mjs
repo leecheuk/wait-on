@@ -15,7 +15,7 @@ const config = [
   {
     input: 'bin/dist/wait-on.d.ts',
     output: [{ file: 'index.d.ts', format: 'es' }],
-    plugins: [dts(), del({ targets: 'bin/dist' })]
+    plugins: [dts()]
   }
 ];
 export default config;

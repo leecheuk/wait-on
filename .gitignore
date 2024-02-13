@@ -12,3 +12,4 @@ npm-debug.log
 build-lib
 bin/wait-on
 index.d.ts
+bin/dist
