@@ -5,3 +5,5 @@ test/
 .eslintrc.js
 .prettierrc.js
 .travis.yml
+rollup.config.mjs
+bin/dist

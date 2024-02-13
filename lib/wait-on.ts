@@ -1,15 +1,12 @@
-'use strict';
-
-const fs = require('fs');
-const { promisify } = require('util');
-const Joi = require('joi');
-const https = require('https');
-const net = require('net');
-const util = require('util');
-const axiosPkg = require('axios').default;
-const { isBoolean, isEmpty, negate, noop, once, partial, pick, zip } = require('lodash/fp');
-const { NEVER, combineLatest, from, merge, throwError, timer } = require('rxjs');
-const { distinctUntilChanged, map, mergeMap, scan, startWith, take, takeWhile } = require('rxjs/operators');
+import fs from 'fs';
+import util, { promisify } from 'util'
+import Joi from 'joi'
+import https, { AgentOptions } from 'https'
+import net from 'net'
+import axiosPkg, { AxiosBasicCredentials, AxiosError, AxiosProxyConfig, AxiosRequestConfig } from 'axios'
+import { isBoolean, isEmpty, negate, noop, once, partial, pick, zip } from 'lodash/fp'
+import { NEVER, Observable, combineLatest, from, merge, throwError, timer } from 'rxjs'
+import { distinctUntilChanged, map, mergeMap, scan, startWith, take, takeWhile } from 'rxjs/operators'
 
 // force http adapter for axios, otherwise if using jest/jsdom xhr might
 // be used and it logs all errors polluting the logs
@@ -23,7 +20,41 @@ const HTTP_GET_RE = /^https?-get:/;
 const HTTP_UNIX_RE = /^http:\/\/unix:([^:]+):([^:]+)$/;
 const TIMEOUT_ERR_MSG = 'Timed out waiting for';
 
-const WAIT_ON_SCHEMA = Joi.object({
+interface WaitOnSchema {
+  resources: string[];
+  delay: number;
+  httpTimeout: number;
+  interval: number;
+  log: boolean;
+  reverse: boolean;
+  simultaneous: number;
+  timeout: number;
+  validateStatus?: Function;
+  verbose: boolean;
+  window: number;
+  tcpTimeout: number;
+  ca: AgentOptions['ca'];
+  cert: AgentOptions['cert'];
+  key: AgentOptions['key'];
+  passphrase: AgentOptions['passphrase'];
+  proxy: AxiosProxyConfig;
+  auth?: {
+    username?: AxiosBasicCredentials['username'];
+    password?: AxiosBasicCredentials['password'];
+  };
+  strictSSL: boolean;
+  followRedirect: boolean;
+  headers?: Record<any, any>;
+}
+
+interface CreateResourceParams {
+  validatedOpts: WaitOnSchema;
+
+  /** Logger */
+  output: (message: string) => void;
+}
+
+const WAIT_ON_SCHEMA = Joi.object<WaitOnSchema>({
   resources: Joi.array().items(Joi.string().required()).required(),
   delay: Joi.number().integer().min(0).default(0),
   httpTimeout: Joi.number().integer().min(0),
@@ -51,6 +82,20 @@ const WAIT_ON_SCHEMA = Joi.object({
   followRedirect: Joi.boolean().default(true), // HTTP 3XX responses
   headers: Joi.object()
 });
+
+interface WaitOnConfig {
+  delay?: number;
+  httpTimeout?: number;
+  interval?: number;
+  log?: boolean;
+  resources: string[];
+  reverse?: boolean;
+  simultaneous?: number;
+  tcpTimeout?: number;
+  timeout?: number;
+  verbose?: boolean;
+  window?: number;
+}
 
 /**
    Waits for resources to become available before calling callback
@@ -84,13 +129,13 @@ const WAIT_ON_SCHEMA = Joi.object({
    @param cb optional callback function with signature cb(err) - if err is provided then, resource checks did not succeed
    if not specified, wait-on will return a promise that will be rejected if resource checks did not succeed or resolved otherwise
  */
-function waitOn(opts, cb) {
+function waitOn(opts: WaitOnConfig, cb?: (err: unknown) => void) {
   if (cb !== undefined) {
     return waitOnImpl(opts, cb);
   } else {
     // promise API
-    return new Promise(function (resolve, reject) {
-      waitOnImpl(opts, function (err) {
+    return new Promise<void>(function (resolve, reject) {
+      waitOnImpl(opts, function (err: unknown) {
         if (err) {
           reject(err);
         } else {
@@ -101,7 +146,7 @@ function waitOn(opts, cb) {
   }
 }
 
-function waitOnImpl(opts, cbFunc) {
+function waitOnImpl(opts: WaitOnConfig, cbFunc: (err: unknown) => void) {
   const cbOnce = once(cbFunc);
   const validResult = WAIT_ON_SCHEMA.validate(opts);
   if (validResult.error) {
@@ -116,8 +161,8 @@ function waitOnImpl(opts, cbFunc) {
 
   const { resources, log: shouldLog, timeout, verbose, reverse } = validatedOpts;
 
-  const output = verbose ? console.log.bind() : noop;
-  const log = shouldLog ? console.log.bind() : noop;
+  const output = verbose ? console.log.bind(null) : noop;
+  const log = shouldLog ? console.log.bind(null) : noop;
   const logWaitingForWDeps = partial(logWaitingFor, [{ log, resources }]);
   const createResourceWithDeps$ = partial(createResource$, [{ validatedOpts, output, log }]);
 
@@ -128,15 +173,15 @@ function waitOnImpl(opts, cbFunc) {
       ? timer(timeout).pipe(
           mergeMap(() => {
             const resourcesWaitingFor = determineRemainingResources(resources, lastResourcesState).join(', ');
-            return throwError(Error(`${TIMEOUT_ERR_MSG}: ${resourcesWaitingFor}`));
+            return throwError(() => new Error(`${TIMEOUT_ERR_MSG}: ${resourcesWaitingFor}`));
           })
         )
       : NEVER;
 
-  function cleanup(err) {
+  function cleanup(err?: unknown) {
     if (err) {
-      if (err.message.startsWith(TIMEOUT_ERR_MSG)) {
-        log('wait-on(%s) %s; exiting with error', process.pid, err.message);
+      if ((err as Error).message.startsWith(TIMEOUT_ERR_MSG)) {
+        log('wait-on(%s) %s; exiting with error', process.pid, (err as Error).message);
       } else {
         log('wait-on(%s) exiting with error', process.pid, err);
       }
@@ -158,28 +203,33 @@ function waitOnImpl(opts, cbFunc) {
     .pipe(takeWhile((resourceStates) => resourceStates.some((x) => !x)))
     .subscribe({
       next: (resourceStates) => {
-        lastResourcesState = resourceStates;
-        logWaitingForWDeps(resourceStates);
+        lastResourcesState = resourceStates as string[];
+        logWaitingForWDeps(resourceStates as string[]);
       },
       error: cleanup,
       complete: cleanup
     });
 }
 
-function logWaitingFor({ log, resources }, resourceStates) {
+interface LogWaitingForParams {
+  log: (message: string) => void;
+  resources: string[];
+}
+
+function logWaitingFor({ log, resources }: LogWaitingForParams, resourceStates: string[]): void {
   const remainingResources = determineRemainingResources(resources, resourceStates);
   if (isNotEmpty(remainingResources)) {
     log(`waiting for ${remainingResources.length} resources: ${remainingResources.join(', ')}`);
   }
 }
 
-function determineRemainingResources(resources, resourceStates) {
+function determineRemainingResources(resources: string[], resourceStates: string[]): (string | undefined)[] {
   // resourcesState is array of completed booleans
   const resourceAndStateTuples = zip(resources, resourceStates);
   return resourceAndStateTuples.filter(([, /* r */ s]) => !s).map(([r /*, s */]) => r);
 }
 
-function createResource$(deps, resource) {
+function createResource$(deps: CreateResourceParams, resource: string): Observable<unknown> {
   const prefix = extractPrefix(resource);
   switch (prefix) {
     case 'https-get:':
@@ -197,17 +247,18 @@ function createResource$(deps, resource) {
 }
 
 function createFileResource$(
-  { validatedOpts: { delay, interval, reverse, simultaneous, window: stabilityWindow }, output },
-  resource
+  { validatedOpts: { delay, interval, reverse, simultaneous, window: stabilityWindow }, output }: CreateResourceParams,
+  resource: string
 ) {
   const filePath = extractPath(resource);
   const checkOperator = reverse
     ? map((size) => size === -1) // check that file does not exist
     : scan(
         // check that file exists and the size is stable
-        (acc, x) => {
+        (acc: { size: number, t: number } | boolean, x: number) => {
           if (x > -1) {
-            const { size, t } = acc;
+            // TODO: Handle case where acc is boolean
+            const { size, t } = acc as { size: number, t: number };
             const now = Date.now();
             if (size !== -1 && x === size) {
               if (now >= t + stabilityWindow) {
@@ -239,7 +290,7 @@ function createFileResource$(
   );
 }
 
-function extractPath(resource) {
+function extractPath(resource: string): string {
   const m = PREFIX_RE.exec(resource);
   if (m) {
     return m[3];
@@ -247,7 +298,7 @@ function extractPath(resource) {
   return resource;
 }
 
-function extractPrefix(resource) {
+function extractPrefix(resource: string): string {
   const m = PREFIX_RE.exec(resource);
   if (m) {
     return m[1];
@@ -255,7 +306,7 @@ function extractPrefix(resource) {
   return '';
 }
 
-async function getFileSize(filePath) {
+async function getFileSize(filePath: string): Promise<number> {
   try {
     const { size } = await fstat(filePath);
     return size;
@@ -264,7 +315,7 @@ async function getFileSize(filePath) {
   }
 }
 
-function createHTTP$({ validatedOpts, output }, resource) {
+function createHTTP$({ validatedOpts, output }: CreateResourceParams, resource: string) {
   const {
     delay,
     followRedirect,
@@ -300,7 +351,7 @@ function createHTTP$({ validatedOpts, output }, resource) {
   return timer(delay, interval).pipe(
     mergeMap(() => {
       output(`making HTTP(S) ${method} request to ${socketPathDesc} url:${urlSocketOptions.url} ...`);
-      return from(checkFn(output, httpOptions));
+      return from(checkFn(output, httpOptions as AxiosRequestConfig));
     }, simultaneous),
     startWith(false),
     distinctUntilChanged(),
@@ -308,7 +359,7 @@ function createHTTP$({ validatedOpts, output }, resource) {
   );
 }
 
-async function httpCallSucceeds(output, httpOptions) {
+async function httpCallSucceeds(output: (message: string) => void, httpOptions: AxiosRequestConfig): Promise<boolean> {
   try {
     const result = await axios(httpOptions);
     output(
@@ -318,12 +369,12 @@ async function httpCallSucceeds(output, httpOptions) {
     );
     return true;
   } catch (err) {
-    output(`  HTTP(S) error for ${httpOptions.url} ${err.toString()}`);
+    output(`  HTTP(S) error for ${httpOptions.url} ${(err as AxiosError).toString()}`);
     return false;
   }
 }
 
-function createTCP$({ validatedOpts: { delay, interval, tcpTimeout, reverse, simultaneous }, output }, resource) {
+function createTCP$({ validatedOpts: { delay, interval, tcpTimeout, reverse, simultaneous }, output }: CreateResourceParams, resource: string) {
   const tcpPath = extractPath(resource);
   const checkFn = reverse ? negateAsync(tcpExists) : tcpExists;
   return timer(delay, interval).pipe(
@@ -337,12 +388,16 @@ function createTCP$({ validatedOpts: { delay, interval, tcpTimeout, reverse, sim
   );
 }
 
-async function tcpExists(output, tcpPath, tcpTimeout) {
-  const [, , /* full, hostWithColon */ hostMatched, port] = HOST_PORT_RE.exec(tcpPath);
+async function tcpExists(output: (message: string) => void, tcpPath: string, tcpTimeout: number): Promise<boolean> {
+  const tcpPathMeta = HOST_PORT_RE.exec(tcpPath);
+  if (!tcpPathMeta) return new Promise((resolve) => resolve(false));
+
+  const [, , /* full, hostWithColon */ hostMatched, port] = tcpPathMeta;
   const host = hostMatched || 'localhost';
+
   return new Promise((resolve) => {
     const conn = net
-      .connect(port, host)
+      .connect(Number(port), host)
       .on('error', (err) => {
         output(`  error connecting to TCP host:${host} port:${port} ${err.toString()}`);
         resolve(false);
@@ -361,7 +416,7 @@ async function tcpExists(output, tcpPath, tcpTimeout) {
   });
 }
 
-function createSocket$({ validatedOpts: { delay, interval, reverse, simultaneous }, output }, resource) {
+function createSocket$({ validatedOpts: { delay, interval, reverse, simultaneous }, output }: CreateResourceParams, resource: string) {
   const socketPath = extractPath(resource);
   const checkFn = reverse ? negateAsync(socketExists) : socketExists;
   return timer(delay, interval).pipe(
@@ -375,7 +430,7 @@ function createSocket$({ validatedOpts: { delay, interval, reverse, simultaneous
   );
 }
 
-async function socketExists(output, socketPath) {
+async function socketExists(output: (message: string) => void, socketPath: string): Promise<boolean> {
   return new Promise((resolve) => {
     const conn = net
       .connect(socketPath)
@@ -391,10 +446,10 @@ async function socketExists(output, socketPath) {
   });
 }
 
-function negateAsync(asyncFn) {
-  return async function (...args) {
+function negateAsync(asyncFn: Function): (...args: any[]) => Promise<boolean> {
+  return async function (...args: any[]) {
     return !(await asyncFn(...args));
   };
 }
 
-module.exports = waitOn;
+export default waitOn;

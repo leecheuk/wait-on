@@ -1,35 +1,30 @@
-'use strict';
+import waitOn from '../lib/wait-on';
+import fs from 'fs';
+import http, { Server } from 'http';
+import path from 'path';
+import { mkdirp } from 'mkdirp'
+import { describe, afterEach, it, expect } from 'vitest';
 
-const waitOn = require('../');
-const fs = require('fs');
-const http = require('http');
-const path = require('path');
 const temp = require('temp');
-const mkdirp = require('mkdirp');
-
-const mocha = require('mocha');
-const describe = mocha.describe;
-const it = mocha.it;
-const afterEach = mocha.afterEach;
-const expect = require('expect-legacy');
 
 temp.track(); // cleanup files on exit
 
 describe('api', function () {
-  this.timeout(3000);
-  let httpServer = null;
+  let httpServer: Server|null = null;
 
-  afterEach(function (done) {
+  afterEach(function () {
     if (httpServer) {
       httpServer.close();
       httpServer = null;
     }
-    done();
   });
 
-  it('should succeed when file resources are available', function (done) {
-    temp.mkdir({}, function (err, dirPath) {
-      if (err) return done(err);
+  it('should succeed when file resources are available', function () {
+    temp.mkdir({}, function (err: unknown, dirPath: string) {
+      if (err) {
+        console.error(err);
+        throw Error(`Failed to create folder ${dirPath}`);
+      }
       const opts = {
         resources: [path.resolve(dirPath, 'foo'), path.resolve(dirPath, 'bar/deeper/deep/yet')]
       };
@@ -37,15 +32,18 @@ describe('api', function () {
       mkdirp.sync(path.dirname(opts.resources[1]));
       fs.writeFileSync(opts.resources[1], 'data2');
       waitOn(opts, function (err) {
-        expect(err).toNotExist();
-        done();
+        expect(err).not.toBeTruthy();
+  
       });
     });
   });
 
-  it('should succeed when file resources are become available later', function (done) {
-    temp.mkdir({}, function (err, dirPath) {
-      if (err) return done(err);
+  it('should succeed when file resources are become available later', function () {
+    temp.mkdir({}, function (err: unknown, dirPath: string) {
+      if (err) {
+        console.error(err);
+        throw Error(`Failed to create folder ${dirPath}`);
+      }
       const opts = {
         resources: [path.resolve(dirPath, 'foo'), path.resolve(dirPath, 'bar/deeper/deep/yet')]
       };
@@ -57,34 +55,33 @@ describe('api', function () {
       }, 300);
 
       waitOn(opts, function (err) {
-        expect(err).toNotExist();
-        done();
+        expect(err).not.toBeTruthy();
+  
       });
     });
   });
 
-  it('should succeed when http resources are become available later', function (done) {
+  it('should succeed when http resources are become available later', function () {
     const opts = {
-      resources: ['http://localhost:3000', 'http://localhost:3000/foo']
+      resources: ['http://localhost:3008', 'http://localhost:3008/foo']
     };
 
     setTimeout(function () {
       httpServer = http.createServer().on('request', function (req, res) {
         res.end('data');
       });
-      httpServer.listen(3000, 'localhost');
+      httpServer.listen(3008, 'localhost');
     }, 300);
 
     waitOn(opts, function (err) {
-      expect(err).toNotExist();
-      done();
+      expect(err).not.toBeTruthy();
     });
   });
 
-  it('should succeed when custom validateStatus fn is provided http resource returns 401', function (done) {
+  it('should succeed when custom validateStatus fn is provided http resource returns 401', function () {
     const opts = {
-      resources: ['http://localhost:3000'],
-      validateStatus: function (status) {
+      resources: ['http://localhost:3003'],
+      validateStatus: function (status: number) {
         return status === 401 || (status >= 200 && status < 300);
       }
     };
@@ -94,39 +91,37 @@ describe('api', function () {
         res.statusCode = 401;
         res.end('Not authorized');
       });
-      httpServer.listen(3000, 'localhost');
+      httpServer.listen(3003, 'localhost');
     }, 300);
 
     waitOn(opts, function (err) {
-      expect(err).toNotExist();
-      done();
+      expect(err).not.toBeTruthy();
     });
   });
 
-  it('should succeed when http resource become available later via redirect', function (done) {
+  it('should succeed when http resource become available later via redirect', function () {
     const opts = {
       // followRedirect: true // default is true
-      resources: ['http://localhost:3000']
+      resources: ['http://localhost:3004']
     };
 
     setTimeout(function () {
       httpServer = http.createServer().on('request', function (req, res) {
         const pathname = req.url;
         if (pathname === '/') {
-          res.writeHead(302, { Location: 'http://localhost:3000/foo' });
+          res.writeHead(302, { Location: 'http://localhost:3004/foo' });
         }
         res.end('data');
       });
-      httpServer.listen(3000, 'localhost');
+      httpServer.listen(3004, 'localhost');
     }, 300);
 
     waitOn(opts, function (err) {
-      expect(err).toNotExist();
-      done();
+      expect(err).not.toBeTruthy();
     });
   });
 
-  it('should succeed when http GET resources become available later', function (done) {
+  it('should succeed when http GET resources become available later', function () {
     const opts = {
       resources: ['http-get://localhost:3011', 'http-get://localhost:3011/foo']
     };
@@ -139,36 +134,34 @@ describe('api', function () {
     }, 300);
 
     waitOn(opts, function (err) {
-      expect(err).toNotExist();
-      done();
+      expect(err).not.toBeTruthy();
     });
   });
 
-  it('should succeed when http GET resource become available later via redirect', function (done) {
+  it('should succeed when http GET resource become available later via redirect', function () {
     const opts = {
       // followRedirect: true, // default is true
-      resources: ['http-get://localhost:3000']
+      resources: ['http-get://localhost:3005']
     };
 
     setTimeout(function () {
       httpServer = http.createServer().on('request', function (req, res) {
         const pathname = req.url;
         if (pathname === '/') {
-          res.writeHead(302, { Location: 'http://localhost:3000/foo' });
+          res.writeHead(302, { Location: 'http://localhost:3005/foo' });
         }
         res.end('data');
       });
-      httpServer.listen(3000, 'localhost');
+      httpServer.listen(3005, 'localhost');
     }, 300);
 
     waitOn(opts, function (err) {
-      expect(err).toNotExist();
-      done();
+      expect(err).not.toBeTruthy();
     });
   });
 
   /*
-  it('should succeed when an https resource is available', function (done) {
+  it('should succeed when an https resource is available', function () {
     const opts = {
       resources: [
         'https://www.google.com'
@@ -176,12 +169,11 @@ describe('api', function () {
     };
 
     waitOn(opts, function (err) {
-      expect(err).toNotExist();
-      done();
+      expect(err).not.toBeTruthy();
     });
   });
 
-  it('should succeed when an https GET resource is available', function (done) {
+  it('should succeed when an https GET resource is available', function () {
     const opts = {
       resources: [
         'https-get://www.google.com'
@@ -189,13 +181,12 @@ describe('api', function () {
     };
 
     waitOn(opts, function (err) {
-      expect(err).toNotExist();
-      done();
+      expect(err).not.toBeTruthy();
     });
   });
   */
 
-  it('should succeed when a service is listening to tcp port', function (done) {
+  it('should succeed when a service is listening to tcp port', function () {
     const opts = {
       resources: ['tcp:localhost:3001', 'tcp:3001']
     };
@@ -208,15 +199,17 @@ describe('api', function () {
     }, 300);
 
     waitOn(opts, function (err) {
-      expect(err).toNotExist();
-      done();
+      expect(err).not.toBeTruthy();
     });
   });
 
-  it('should succeed when a service is listening to a socket', function (done) {
-    let socketPath;
-    temp.mkdir({}, function (err, dirPath) {
-      if (err) return done(err);
+  it('should succeed when a service is listening to a socket', function () {
+    let socketPath: string;
+    temp.mkdir({}, function (err: unknown, dirPath: string) {
+      if (err) {
+        console.error(err);
+        throw Error(`Failed to create folder ${dirPath}`);
+      }
       socketPath = path.resolve(dirPath, 'sock');
       const opts = {
         resources: ['socket:' + socketPath]
@@ -228,16 +221,19 @@ describe('api', function () {
       }, 300);
 
       waitOn(opts, function (err) {
-        expect(err).toNotExist();
-        done();
+        expect(err).not.toBeTruthy();
+  
       });
     });
   });
 
-  it('should succeed when a http service is listening to a socket', function (done) {
-    let socketPath;
-    temp.mkdir({}, function (err, dirPath) {
-      if (err) return done(err);
+  it('should succeed when a http service is listening to a socket', function () {
+    let socketPath: string;
+    temp.mkdir({}, function (err: unknown, dirPath: string) {
+      if (err) {
+        console.error(err);
+        throw Error(`Failed to create folder ${dirPath}`);
+      }
       socketPath = path.resolve(dirPath, 'sock');
       const opts = {
         resources: ['http://unix:' + socketPath + ':/', 'http://unix:' + socketPath + ':/foo']
@@ -251,16 +247,19 @@ describe('api', function () {
       }, 300);
 
       waitOn(opts, function (err) {
-        expect(err).toNotExist();
-        done();
+        expect(err).not.toBeTruthy();
+  
       });
     });
   });
 
-  it('should succeed when a http GET service is listening to a socket', function (done) {
-    let socketPath;
-    temp.mkdir({}, function (err, dirPath) {
-      if (err) return done(err);
+  it('should succeed when a http GET service is listening to a socket', function () {
+    let socketPath: string;
+    temp.mkdir({}, function (err: unknown, dirPath: string) {
+      if (err) {
+        console.error(err);
+        throw Error(`Failed to create folder ${dirPath}`);
+      }
       socketPath = path.resolve(dirPath, 'sock');
       const opts = {
         resources: ['http-get://unix:' + socketPath + ':/', 'http-get://unix:' + socketPath + ':/foo']
@@ -274,44 +273,50 @@ describe('api', function () {
       }, 300);
 
       waitOn(opts, function (err) {
-        expect(err).toNotExist();
-        done();
+        expect(err).not.toBeTruthy();
+  
       });
     });
   });
 
   // Error situations
 
-  it('should timeout when all resources are not available and timout option is specified', function (done) {
-    temp.mkdir({}, function (err, dirPath) {
-      if (err) return done(err);
+  it('should timeout when all resources are not available and timeout option is specified', function () {
+    temp.mkdir({}, function (err: unknown, dirPath: string) {
+      if (err) {
+        console.error(err);
+        throw Error(`Failed to create folder ${dirPath}`);
+      }
       const opts = {
         resources: [path.resolve(dirPath, 'foo')],
         timeout: 1000
       };
       waitOn(opts, function (err) {
-        expect(err).toExist();
-        done();
+        expect(err).toBeTruthy();
+  
       });
     });
   });
 
-  it('should timeout when some resources are not available and timout option is specified', function (done) {
-    temp.mkdir({}, function (err, dirPath) {
-      if (err) return done(err);
+  it('should timeout when some resources are not available and timeout option is specified', function () {
+    temp.mkdir({}, function (err: unknown, dirPath: string) {
+      if (err) {
+        console.error(err);
+        throw Error(`Failed to create folder ${dirPath}`);
+      }
       const opts = {
         resources: [path.resolve(dirPath, 'foo'), path.resolve(dirPath, 'bar')],
         timeout: 1000
       };
       fs.writeFile(opts.resources[0], 'data', function () {});
       waitOn(opts, function (err) {
-        expect(err).toExist();
-        done();
+        expect(err).toBeTruthy();
+  
       });
     });
   });
 
-  it('should timeout when an http resource returns 404', function (done) {
+  it('should timeout when an http resource returns 404', function () {
     const opts = {
       resources: ['http://localhost:3002'],
       timeout: 1000,
@@ -328,12 +333,11 @@ describe('api', function () {
     }, 300);
 
     waitOn(opts, function (err) {
-      expect(err).toExist();
-      done();
+      expect(err).toBeTruthy();
     });
   });
 
-  it('should timeout when an http resource is not available', function (done) {
+  it('should timeout when an http resource is not available', function () {
     const opts = {
       resources: ['http://localhost:3010'],
       timeout: 1000,
@@ -342,12 +346,11 @@ describe('api', function () {
     };
 
     waitOn(opts, function (err) {
-      expect(err).toExist();
-      done();
+      expect(err).toBeTruthy();
     });
   });
 
-  it('should timeout when an http resource does not respond before httpTimeout', function (done) {
+  it('should timeout when an http resource does not respond before httpTimeout', function () {
     const opts = {
       resources: ['http://localhost:8125'],
       timeout: 1000,
@@ -365,36 +368,34 @@ describe('api', function () {
     httpServer.listen(8125, 'localhost');
 
     waitOn(opts, function (err) {
-      expect(err).toExist();
-      done();
+      expect(err).toBeTruthy();
     });
   });
 
-  it('should timeout when followRedirect is false and http resource redirects', function (done) {
+  it('should timeout when followRedirect is false and http resource redirects', function () {
     const opts = {
       timeout: 1000,
       interval: 100,
       window: 100,
       followRedirect: false,
-      resources: ['http://localhost:3000']
+      resources: ['http://localhost:3006']
     };
 
     httpServer = http.createServer().on('request', function (req, res) {
       const pathname = req.url;
       if (pathname === '/') {
-        res.writeHead(302, { Location: 'http://localhost:3000/foo' });
+        res.writeHead(302, { Location: 'http://localhost:3006/foo' });
       }
       res.end('data');
     });
-    httpServer.listen(3000, 'localhost');
+    httpServer.listen(3006, 'localhost');
 
     waitOn(opts, function (err) {
-      expect(err).toExist();
-      done();
+      expect(err).toBeTruthy();
     });
   });
 
-  it('should timeout when an http GET resource is not available', function (done) {
+  it('should timeout when an http GET resource is not available', function () {
     const opts = {
       resources: ['http-get://localhost:3010'],
       timeout: 1000,
@@ -403,12 +404,11 @@ describe('api', function () {
     };
 
     waitOn(opts, function (err) {
-      expect(err).toExist();
-      done();
+      expect(err).toBeTruthy();
     });
   });
 
-  it('should timeout when an https resource is not available', function (done) {
+  it('should timeout when an https resource is not available', function () {
     const opts = {
       resources: ['https://localhost:3010/foo/bar'],
       timeout: 1000,
@@ -417,12 +417,11 @@ describe('api', function () {
     };
 
     waitOn(opts, function (err) {
-      expect(err).toExist();
-      done();
+      expect(err).toBeTruthy();
     });
   });
 
-  it('should timeout when an https GET resource is not available', function (done) {
+  it('should timeout when an https GET resource is not available', function () {
     const opts = {
       resources: ['https-get://localhost:3010/foo/bar'],
       timeout: 1000,
@@ -431,51 +430,51 @@ describe('api', function () {
     };
 
     waitOn(opts, function (err) {
-      expect(err).toExist();
-      done();
+      expect(err).toBeTruthy();
     });
   });
 
-  it('should timeout when followRedirect is false and http GET resource redirects', function (done) {
+  it('should timeout when followRedirect is false and http GET resource redirects', function () {
     const opts = {
       timeout: 1000,
       interval: 100,
       window: 100,
       followRedirect: false,
-      resources: ['http-get://localhost:3000']
+      resources: ['http-get://localhost:3007']
     };
 
     httpServer = http.createServer().on('request', function (req, res) {
       const pathname = req.url;
       if (pathname === '/') {
-        res.writeHead(302, { Location: 'http://localhost:3000/foo' });
+        res.writeHead(302, { Location: 'http://localhost:3007/foo' });
       }
       res.end('data');
     });
-    httpServer.listen(3000, 'localhost');
+    httpServer.listen(3007, 'localhost');
 
     waitOn(opts, function (err) {
-      expect(err).toExist();
-      done();
+      expect(err).toBeTruthy();
     });
   });
 
-  it('should timeout when a service is not listening to tcp port', function (done) {
+  it('should timeout when a service is not listening to tcp port', function () {
     const opts = {
       resources: ['tcp:localhost:3010'],
       timeout: 1000
     };
 
     waitOn(opts, function (err) {
-      expect(err).toExist();
-      done();
+      expect(err).toBeTruthy();
     });
   });
 
-  it('should timeout when a service is not listening to a socket', function (done) {
-    let socketPath;
-    temp.mkdir({}, function (err, dirPath) {
-      if (err) return done(err);
+  it('should timeout when a service is not listening to a socket', function () {
+    let socketPath: string;
+    temp.mkdir({}, function (err: unknown, dirPath: string) {
+      if (err) {
+        console.error(err);
+        throw Error(`Failed to create folder ${dirPath}`);
+      }
       socketPath = path.resolve(dirPath, 'sock');
       const opts = {
         resources: ['socket:' + socketPath],
@@ -485,13 +484,13 @@ describe('api', function () {
       };
 
       waitOn(opts, function (err) {
-        expect(err).toExist();
-        done();
+        expect(err).toBeTruthy();
+  
       });
     });
   });
 
-  it('should timeout when a service host is unreachable', function (done) {
+  it('should timeout when a service host is unreachable', function () {
     const opts = {
       resources: ['tcp:256.0.0.1:1234'],
       timeout: 1000,
@@ -499,15 +498,17 @@ describe('api', function () {
     };
 
     waitOn(opts, function (err) {
-      expect(err).toExist();
-      done();
+      expect(err).toBeTruthy();
     });
   });
 
-  it('should timeout when an http service listening to a socket returns 404', function (done) {
-    let socketPath;
-    temp.mkdir({}, function (err, dirPath) {
-      if (err) return done(err);
+  it('should timeout when an http service listening to a socket returns 404', function () {
+    let socketPath: string;
+    temp.mkdir({}, function (err: unknown, dirPath: string) {
+      if (err) {
+        console.error(err);
+        throw Error(`Failed to create folder ${dirPath}`);
+      }
       socketPath = path.resolve(dirPath, 'sock');
       const opts = {
         resources: ['http://unix:' + socketPath + ':/', 'http://unix:' + socketPath + ':/foo'],
@@ -525,16 +526,19 @@ describe('api', function () {
       }, 300);
 
       waitOn(opts, function (err) {
-        expect(err).toExist();
-        done();
+        expect(err).toBeTruthy();
+  
       });
     });
   });
 
-  it('should timeout when an http service listening to a socket is too slow', function (done) {
-    let socketPath;
-    temp.mkdir({}, function (err, dirPath) {
-      if (err) return done(err);
+  it('should timeout when an http service listening to a socket is too slow', function () {
+    let socketPath: string;
+    temp.mkdir({}, function (err: unknown, dirPath: string) {
+      if (err) {
+        console.error(err);
+        throw Error(`Failed to create folder ${dirPath}`);
+      }
       socketPath = path.resolve(dirPath, 'sock');
       const opts = {
         resources: ['package.json', 'http://unix:' + socketPath + ':/', 'http://unix:' + socketPath + ':/foo'],
@@ -552,13 +556,13 @@ describe('api', function () {
       httpServer.listen(socketPath);
 
       waitOn(opts, function (err) {
-        expect(err).toExist();
-        done();
+        expect(err).toBeTruthy();
+  
       });
     });
   });
 
-  it('should succeed when a service host is unreachable in reverse mode', function (done) {
+  it('should succeed when a service host is unreachable in reverse mode', function () {
     const opts = {
       resources: ['tcp:256.0.0.1:1234'],
       interval: 100,
@@ -569,29 +573,37 @@ describe('api', function () {
     };
 
     waitOn(opts, function (err) {
-      if (err) return done(err);
-      expect(err).toNotExist();
-      done();
+      if (err) {
+        console.error(err);
+        throw Error(`An error occurred`);
+      }
+      expect(err).not.toBeTruthy();
     });
   });
 
-  it('should succeed when file resources are not available in reverse mode', function (done) {
-    temp.mkdir({}, function (err, dirPath) {
-      if (err) return done(err);
+  it('should succeed when file resources are not available in reverse mode', function () {
+    temp.mkdir({}, function (err: unknown, dirPath: string) {
+      if (err) {
+        console.error(err);
+        throw Error(`Failed to create folder ${dirPath}`);
+      }
       const opts = {
         resources: [path.resolve(dirPath, 'foo'), path.resolve(dirPath, 'bar')],
         reverse: true
       };
       waitOn(opts, function (err) {
-        expect(err).toNotExist();
-        done();
+        expect(err).not.toBeTruthy();
+  
       });
     });
   });
 
-  it('should succeed when file resources are not available later in reverse mode', function (done) {
-    temp.mkdir({}, function (err, dirPath) {
-      if (err) return done(err);
+  it('should succeed when file resources are not available later in reverse mode', function () {
+    temp.mkdir({}, function (err: unknown, dirPath: string) {
+      if (err) {
+        console.error(err);
+        throw Error(`Failed to create folder ${dirPath}`);
+      }
       const opts = {
         resources: [path.resolve(dirPath, 'foo'), path.resolve(dirPath, 'bar')],
         reverse: true
@@ -603,15 +615,18 @@ describe('api', function () {
         fs.unlinkSync(opts.resources[1]);
       }, 300);
       waitOn(opts, function (err) {
-        expect(err).toNotExist();
-        done();
+        expect(err).not.toBeTruthy();
+  
       });
     });
   });
 
-  it('should timeout when file resources are available in reverse mode', function (done) {
-    temp.mkdir({}, function (err, dirPath) {
-      if (err) return done(err);
+  it('should timeout when file resources are available in reverse mode', function () {
+    temp.mkdir({}, function (err: unknown, dirPath: string) {
+      if (err) {
+        console.error(err);
+        throw Error(`Failed to create folder ${dirPath}`);
+      }
       const opts = {
         resources: [path.resolve(dirPath, 'foo'), path.resolve(dirPath, 'bar')],
         reverse: true,
@@ -620,34 +635,34 @@ describe('api', function () {
       fs.writeFileSync(opts.resources[0], 'data1');
       fs.writeFileSync(opts.resources[1], 'data2');
       waitOn(opts, function (err) {
-        expect(err).toExist();
-        done();
+        expect(err).toBeTruthy();
       });
     });
   });
 
   describe('promise support', function () {
-    it('should succeed when file resources are available', function (done) {
-      temp.mkdir({}, function (err, dirPath) {
-        if (err) return done(err);
+    it('should succeed when file resources are available', async function () {
+      temp.mkdir({}, async function (err: unknown, dirPath: string) {
+        if (err) {
+        console.error(err);
+        throw Error(`Failed to create folder ${dirPath}`);
+      }
         const opts = {
           resources: [path.resolve(dirPath, 'foo'), path.resolve(dirPath, 'bar')]
         };
         fs.writeFileSync(opts.resources[0], 'data1');
         fs.writeFileSync(opts.resources[1], 'data2');
-        waitOn(opts)
-          .then(function () {
-            done();
-          })
-          .catch(function (err) {
-            done(err);
-          });
+
+        await expect(waitOn(opts)).resolves.toBeFalsy();
       });
     });
 
-    it('should succeed when file resources are become available later', function (done) {
-      temp.mkdir({}, function (err, dirPath) {
-        if (err) return done(err);
+    it('should succeed when file resources are become available later', async function () {
+      temp.mkdir({}, async function (err: unknown, dirPath: string) {
+        if (err) {
+        console.error(err);
+        throw Error(`Failed to create folder ${dirPath}`);
+      }
         const opts = {
           resources: [path.resolve(dirPath, 'foo'), path.resolve(dirPath, 'bar')]
         };
@@ -657,73 +672,62 @@ describe('api', function () {
           fs.writeFile(opts.resources[1], 'data2', function () {});
         }, 300);
 
-        waitOn(opts)
-          .then(function () {
-            done();
-          })
-          .catch(function (err) {
-            done(err);
-          });
+        await expect(waitOn(opts)).resolves.toBeFalsy();
       });
     });
 
-    it('should timeout when all resources are not available and timout option is specified', function (done) {
-      temp.mkdir({}, function (err, dirPath) {
-        if (err) return done(err);
+    it('should timeout when all resources are not available and timeout option is specified', async function () {
+      temp.mkdir({}, async function (err: unknown, dirPath: string) {
+        if (err) {
+          console.error(err);
+          throw Error(`Failed to create folder ${dirPath}`);
+        }
         const opts = {
           resources: [path.resolve(dirPath, 'foo')],
           timeout: 1000
         };
-        waitOn(opts)
-          .then(function () {
-            done(new Error('Should not be resolved'));
-          })
-          .catch(function (err) {
-            expect(err).toExist();
-            done();
-          });
+
+        await expect(waitOn(opts)).rejects.toBeTruthy();
       });
     });
 
-    it('should timeout when some resources are not available and timout option is specified', function (done) {
-      temp.mkdir({}, function (err, dirPath) {
-        if (err) return done(err);
+    it('should timeout when some resources are not available and timeout option is specified', async function () {
+      temp.mkdir({}, async function (err: unknown, dirPath: string) {
+        if (err) {
+          console.error(err);
+          throw Error(`Failed to create folder ${dirPath}`);
+        }
         const opts = {
           resources: [path.resolve(dirPath, 'foo'), path.resolve(dirPath, 'bar')],
           timeout: 1000
         };
         fs.writeFile(opts.resources[0], 'data', function () {});
-        waitOn(opts)
-          .then(function () {
-            done(new Error('Should not be resolved'));
-          })
-          .catch(function (err) {
-            expect(err).toExist();
-            done();
-          });
+
+        await expect(waitOn(opts)).rejects.toBeTruthy();
       });
     });
 
-    it('should succeed when file resources are not available in reverse mode', function (done) {
-      temp.mkdir({}, function (err, dirPath) {
-        if (err) return done(err);
+    it('should succeed when file resources are not available in reverse mode', async function () {
+      temp.mkdir({}, async function (err: unknown, dirPath: string) {
+        if (err) {
+          console.error(err);
+          throw Error(`Failed to create folder ${dirPath}`);
+        }
         const opts = {
           resources: [path.resolve(dirPath, 'foo'), path.resolve(dirPath, 'bar')],
           reverse: true
         };
-        waitOn(opts)
-          .then(function () {
-            done();
-          })
-          .catch(function (err) {
-            done(err);
-          });
+
+        await expect(waitOn(opts)).resolves.toBeFalsy();
       });
     });
 
-    it('should succeed when file resources are not available later in reverse mode', function (done) {
-      temp.mkdir({}, function (err, dirPath) {
-        if (err) return done(err);
+    it('should succeed when file resources are not available later in reverse mode', async function () {
+      temp.mkdir({}, async function (err: unknown, dirPath: string) {
+        if (err) {
+          console.error(err);
+          throw Error(`Failed to create folder ${dirPath}`);
+        }
         const opts = {
           resources: [path.resolve(dirPath, 'foo'), path.resolve(dirPath, 'bar')],
           reverse: true
@@ -734,19 +738,17 @@ describe('api', function () {
           fs.unlinkSync(opts.resources[0]);
           fs.unlinkSync(opts.resources[1]);
         }, 300);
-        waitOn(opts)
-          .then(function () {
-            done();
-          })
-          .catch(function (err) {
-            done(err);
-          });
+
+        await expect(waitOn(opts)).resolves.toBeFalsy();
       });
     });
 
-    it('should timeout when file resources are available in reverse mode', function (done) {
-      temp.mkdir({}, function (err, dirPath) {
-        if (err) return done(err);
+    it('should timeout when file resources are available in reverse mode', async function () {
+      temp.mkdir({}, async function (err: unknown, dirPath: string) {
+        if (err) {
+          console.error(err);
+          throw Error(`Failed to create folder ${dirPath}`);
+        }
         const opts = {
           resources: [path.resolve(dirPath, 'foo'), path.resolve(dirPath, 'bar')],
           reverse: true,
@@ -754,14 +756,8 @@ describe('api', function () {
         };
         fs.writeFileSync(opts.resources[0], 'data1');
         fs.writeFileSync(opts.resources[1], 'data2');
-        waitOn(opts)
-          .then(function () {
-            done(new Error('Should not be resolved'));
-          })
-          .catch(function (err) {
-            expect(err).toExist();
-            done();
-          });
+
+        await expect(waitOn(opts)).rejects.toBeTruthy();
       });
     });
   });

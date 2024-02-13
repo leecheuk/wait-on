@@ -1,9 +1,7 @@
-#!/usr/bin/env node
-
-const fs = require('fs');
+import fs from 'fs';
+import path from 'path';
+import waitOn from './wait-on';
 const minimist = require('minimist');
-const path = require('path');
-const waitOn = require('../');
 
 const interval = ['timeout', 'httpTimeout', 'tcpTimeout'];
 const minimistOpts = {
@@ -65,7 +63,7 @@ if (argv.help || !hasResources) {
     return accum;
   }, configOpts);
 
-  waitOn(opts, function (err) {
+  waitOn(opts, function (err: unknown) {
     if (err) {
       return errorExit(err);
     }
@@ -76,16 +74,16 @@ if (argv.help || !hasResources) {
   });
 }
 
-function errorExit(err) {
-  if (err.stack) {
-    console.error(err.stack);
+function errorExit(err: unknown) {
+  if ((err as Error).stack) {
+    console.error((err as Error).stack);
   } else {
     console.error(String(err));
   }
   process.exit(1);
 }
 
-function parseInterval(arg) {
+function parseInterval(arg: string) {
   const res = /^([\d.]+)(|ms|s|m|h)$/i.exec(arg);
   if (!res) {
     return arg;
